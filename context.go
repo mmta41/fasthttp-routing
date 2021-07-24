@@ -19,12 +19,17 @@ type Context struct {
 
 	Serialize SerializeFunc // the function serializing the given data of arbitrary type into a byte array.
 
-	router   *Router
-	pnames   []string               // list of route parameter names
-	pvalues  []string               // list of parameter values corresponding to pnames
-	data     map[string]interface{} // data items managed by Get and Set
-	index    int                    // the index of the currently executing handler in handlers
-	handlers []Handler              // the handlers associated with the current route
+	router    *Router
+	matchPath string
+	pnames    []string               // list of route parameter names
+	pvalues   []string               // list of parameter values corresponding to pnames
+	data      map[string]interface{} // data items managed by Get and Set
+	index     int                    // the index of the currently executing handler in handlers
+	handlers  []Handler              // the handlers associated with the current route
+}
+
+func (c *Context) MatchPath() string {
+	return c.matchPath
 }
 
 // Router returns the Router that is handling the incoming HTTP request.

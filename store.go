@@ -37,14 +37,14 @@ func newStore() *store {
 // The number of parameters in the key is returned.
 func (s *store) Add(key string, data interface{}) int {
 	s.count++
-	return s.root.add(key, data, s.count)
+	return s.root.add(key, key, data, s.count)
 }
 
 // Get returns the data item matching the given concrete key.
 // If the data item was added to the store with a parametric key before, the matching
 // parameter names and values will be returned as well.
-func (s *store) Get(path string, pvalues []string) (data interface{}, pnames []string) {
-	data, pnames, _ = s.root.get(path, pvalues)
+func (s *store) Get(path string, pvalues []string) (data interface{}, pnames []string, mPath string) {
+	data, pnames, _, mPath = s.root.get(path, pvalues)
 	return
 }
 
@@ -57,6 +57,7 @@ func (s *store) String() string {
 type node struct {
 	static bool // whether the node is a static node or param node
 
+	path string
 	key  string      // the key identifying this node
 	data interface{} // the data associated with this node. nil if not a data node.
 
@@ -73,7 +74,7 @@ type node struct {
 
 // add adds a new data item to the tree rooted at the current node.
 // The number of parameters in the key is returned.
-func (n *node) add(key string, data interface{}, order int) int {
+func (n *node) add(path string, key string, data interface{}, order int) int {
 	matched := 0
 
 	// find the common prefix
@@ -99,18 +100,18 @@ func (n *node) add(key string, data interface{}, order int) int {
 
 		// try adding to a static child
 		if child := n.children[newKey[0]]; child != nil {
-			if pn := child.add(newKey, data, order); pn >= 0 {
+			if pn := child.add(path, newKey, data, order); pn >= 0 {
 				return pn
 			}
 		}
 		// try adding to a param child
 		for _, child := range n.pchildren {
-			if pn := child.add(newKey, data, order); pn >= 0 {
+			if pn := child.add(path, newKey, data, order); pn >= 0 {
 				return pn
 			}
 		}
 
-		return n.addChild(newKey, data, order)
+		return n.addChild(path, newKey, data, order)
 	}
 
 	if matched == 0 || !n.static {
@@ -121,6 +122,7 @@ func (n *node) add(key string, data interface{}, order int) int {
 	// the node key shares a partial prefix with the key: split the node key
 	n1 := &node{
 		static:    true,
+		path:      n.path,
 		key:       n.key[matched:],
 		data:      n.data,
 		order:     n.order,
@@ -137,11 +139,11 @@ func (n *node) add(key string, data interface{}, order int) int {
 	n.children = make([]*node, 256)
 	n.children[n1.key[0]] = n1
 
-	return n.add(key, data, order)
+	return n.add(path, key, data, order)
 }
 
 // addChild creates static and param nodes to store the given data
-func (n *node) addChild(key string, data interface{}, order int) int {
+func (n *node) addChild(path string, key string, data interface{}, order int) int {
 	// find the first occurrence of a param token
 	p0, p1 := -1, -1
 	for i := 0; i < len(key); i++ {
@@ -158,6 +160,7 @@ func (n *node) addChild(key string, data interface{}, order int) int {
 		// param token occurs after a static string, or no param token: create a static node
 		child := &node{
 			static:    true,
+			path:      path,
 			key:       key,
 			minOrder:  order,
 			children:  make([]*node, 256),
@@ -216,11 +219,11 @@ func (n *node) addChild(key string, data interface{}, order int) int {
 	}
 
 	// process the rest of the key
-	return child.addChild(key[p1+1:], data, order)
+	return child.addChild(path, key[p1+1:], data, order)
 }
 
 // get returns the data item with the key matching the tree rooted at the current node
-func (n *node) get(key string, pvalues []string) (data interface{}, pnames []string, order int) {
+func (n *node) get(key string, pvalues []string) (data interface{}, pnames []string, order int, mPath string) {
 	order = math.MaxInt32
 
 repeat:
@@ -272,11 +275,11 @@ repeat:
 				n = child
 				goto repeat
 			}
-			data, pnames, order = child.get(key, pvalues)
+			data, pnames, order, mPath = child.get(key, pvalues)
 		}
 	} else if n.data != nil {
 		// do not return yet: a param node may match an empty string with smaller order
-		data, pnames, order = n.data, n.pnames, n.order
+		data, pnames, order, mPath = n.data, n.pnames, n.order, n.path
 	}
 
 	// try matching param children
@@ -290,13 +293,13 @@ repeat:
 			tvalues = make([]string, len(pvalues))
 			allocated = true
 		}
-		if d, p, s := child.get(key, tvalues); d != nil && s < order {
+		if d, p, s, m := child.get(key, tvalues); d != nil && s < order {
 			if allocated {
 				for i := child.pindex; i < len(p); i++ {
 					pvalues[i] = tvalues[i]
 				}
 			}
-			data, pnames, order = d, p, s
+			data, pnames, order, mPath = d, p, s, m
 		}
 	}
 

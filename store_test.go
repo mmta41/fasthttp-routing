@@ -151,8 +151,9 @@ func TestStoreGet(t *testing.T) {
 	}
 	pvalues := make([]string, maxParams)
 	for _, test := range tests {
-		data, pnames := h.Get(test.key, pvalues)
+		data, pnames, mPath := h.Get(test.key, pvalues)
 		assert.Equal(t, test.value, data, "store.Get("+test.key+") =")
+		assert.Equal(t, test.key, mPath, "store.Get("+test.key+") =")
 		params := ""
 		if len(pnames) > 0 {
 			for i, name := range pnames {

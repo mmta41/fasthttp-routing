@@ -32,7 +32,7 @@ type (
 	// routeStore stores route paths and the corresponding handlers.
 	routeStore interface {
 		Add(key string, data interface{}) int
-		Get(key string, pvalues []string) (data interface{}, pnames []string)
+		Get(key string, pvalues []string) (data interface{}, pnames []string, matchPath string)
 		String() string
 	}
 )
@@ -71,7 +71,7 @@ func New() *Router {
 func (r *Router) HandleRequest(ctx *fasthttp.RequestCtx) {
 	c := r.pool.Get().(*Context)
 	c.init(ctx)
-	c.handlers, c.pnames = r.find(string(ctx.Method()), string(ctx.Path()), c.pvalues)
+	c.handlers, c.pnames, c.matchPath = r.find(string(ctx.Method()), string(ctx.Path()), c.pvalues)
 	if err := c.Next(); err != nil {
 		r.handleError(c, err)
 	}
@@ -117,22 +117,22 @@ func (r *Router) add(method, path string, handlers []Handler) {
 	}
 }
 
-func (r *Router) find(method, path string, pvalues []string) (handlers []Handler, pnames []string) {
+func (r *Router) find(method, path string, pvalues []string) (handlers []Handler, pnames []string, matchPath string) {
 	var hh interface{}
 	if store := r.stores[method]; store != nil {
-		hh, pnames = store.Get(path, pvalues)
+		hh, pnames, matchPath = store.Get(path, pvalues)
 	}
 	if hh != nil {
-		return hh.([]Handler), pnames
+		return hh.([]Handler), pnames, matchPath
 	}
-	return r.notFoundHandlers, pnames
+	return r.notFoundHandlers, pnames, matchPath
 }
 
 func (r *Router) findAllowedMethods(path string) map[string]bool {
 	methods := make(map[string]bool)
 	pvalues := make([]string, r.maxParams)
 	for m, store := range r.stores {
-		if handlers, _ := store.Get(path, pvalues); handlers != nil {
+		if handlers, _, _ := store.Get(path, pvalues); handlers != nil {
 			methods[m] = true
 		}
 	}
