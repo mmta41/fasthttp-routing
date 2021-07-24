@@ -120,6 +120,7 @@ func (r *Route) URL(pairs ...interface{}) (s string) {
 // add registers the route, the specified HTTP method and the handlers to the router.
 // The handlers will be combined with the handlers of the route group.
 func (r *Route) add(method string, handlers []Handler) *Route {
+	updateRouteList(method, r.path)
 	hh := combineHandlers(r.group.handlers, handlers)
 	r.group.router.add(method, r.path, hh)
 	return r

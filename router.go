@@ -50,6 +50,24 @@ var Methods = []string{
 	"TRACE",
 }
 
+var routeList map[string][]string
+
+func updateRouteList(method, path string) {
+	if routeList == nil {
+		routeList = make(map[string][]string)
+	}
+	if v, ok := routeList[path]; ok {
+		v = append(v, method)
+		routeList[path] = v
+	} else {
+		routeList[path] = []string{method}
+	}
+}
+
+func GetRouteList() map[string][]string {
+	return routeList
+}
+
 // New creates a new Router object.
 func New() *Router {
 	r := &Router{
