@@ -76,7 +76,6 @@ type node struct {
 // The number of parameters in the key is returned.
 func (n *node) add(path string, key string, data interface{}, order int) int {
 	matched := 0
-	n.path = path
 	// find the common prefix
 	for ; matched < len(key) && matched < len(n.key); matched++ {
 		if key[matched] != n.key[matched] {
@@ -133,6 +132,7 @@ func (n *node) add(path string, key string, data interface{}, order int) int {
 		pnames:    n.pnames,
 	}
 
+	n.path = path
 	n.key = key[0:matched]
 	n.data = nil
 	n.pchildren = make([]*node, 0)
